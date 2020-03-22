@@ -85,7 +85,6 @@ type clientBind struct {
 var (
 	messageTemplate *template.Template
 	serviceTemplate *template.Template
-	endpointBase    string
 )
 
 func parseReq(r io.Reader) (*plugin.CodeGeneratorRequest, error) {
@@ -104,7 +103,7 @@ func parseReq(r io.Reader) (*plugin.CodeGeneratorRequest, error) {
 func processReq(req *plugin.CodeGeneratorRequest) *plugin.CodeGeneratorResponse {
 	extendsMessage := ""
 	extendsService := ""
-	endpointBase := "https://example.com"
+	host := "example.com"
 	for _, p := range strings.Split(req.GetParameter(), ",") {
 		spec := strings.SplitN(p, "=", 2)
 		if len(spec) == 1 {
@@ -116,8 +115,8 @@ func processReq(req *plugin.CodeGeneratorRequest) *plugin.CodeGeneratorResponse 
 			extendsMessage = value
 		case "extends_service":
 			extendsService = value
-		case "endpoint":
-			endpointBase = value
+		case "host":
+			host = value
 		}
 	}
 
@@ -169,7 +168,7 @@ func processReq(req *plugin.CodeGeneratorRequest) *plugin.CodeGeneratorResponse 
 			err := serviceTemplate.Execute(b, clientBind{
 				Name:         sv.GetName(),
 				Methods:      methods,
-				EndpointBase: endpointBase,
+				EndpointBase: fmt.Sprintf("https://%s", host),
 				Extends:      extendsService,
 			})
 			if err != nil {
