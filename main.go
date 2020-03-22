@@ -17,13 +17,16 @@ import (
 )
 
 const messageTemplateString = `class {{ .Type.Name }} {{ if .Extends }}extends {{ .Extends }} {{ end }}{
-    {{ range .Type.Field }}public {{ propertyType . $.PackageName }} {{ .Name }} { get; set; }
-    {{ end }}
-    {{ range .Type.NestedType }}class {{ .Name }} {
-        {{ range .Field }}public {{ propertyType . $.PackageName }} {{ .Name }} { get; set; }
-        {{ end }}
+    {{ range .Type.Field -}}
+    public {{ propertyType . $.PackageName }} {{ .Name }} { get; set; }
+    {{ end -}}
+    {{ range .Type.NestedType -}}
+    class {{ .Name }} {
+        {{ range .Field -}}
+        public {{ propertyType . $.PackageName }} {{ .Name }} { get; set; }
+{{ end }}
     }
-    {{ end }}
+{{ end }}
 }`
 
 const serviceTemplateString = `class {{ .Name }}Service {{ if .Extends }}extends {{ .Extends }} {{ end }}{
@@ -82,8 +85,7 @@ type clientBind struct {
 var (
 	messageTemplate *template.Template
 	serviceTemplate *template.Template
-	extendsMessage  string
-	extendsService  string
+	endpointBase    string
 )
 
 func parseReq(r io.Reader) (*plugin.CodeGeneratorRequest, error) {
@@ -100,16 +102,22 @@ func parseReq(r io.Reader) (*plugin.CodeGeneratorRequest, error) {
 }
 
 func processReq(req *plugin.CodeGeneratorRequest) *plugin.CodeGeneratorResponse {
+	extendsMessage := ""
+	extendsService := ""
+	endpointBase := "https://example.com"
 	for _, p := range strings.Split(req.GetParameter(), ",") {
 		spec := strings.SplitN(p, "=", 2)
 		if len(spec) == 1 {
 			continue
 		}
 		name, value := spec[0], spec[1]
-		if name == "extends_message" {
+		switch name {
+		case "extends_message":
 			extendsMessage = value
-		} else if name == "extends_service" {
+		case "extends_service":
 			extendsService = value
+		case "endpoint":
+			endpointBase = value
 		}
 	}
 
@@ -161,7 +169,7 @@ func processReq(req *plugin.CodeGeneratorRequest) *plugin.CodeGeneratorResponse 
 			err := serviceTemplate.Execute(b, clientBind{
 				Name:         sv.GetName(),
 				Methods:      methods,
-				EndpointBase: "https://example.com",
+				EndpointBase: endpointBase,
 				Extends:      extendsService,
 			})
 			if err != nil {
